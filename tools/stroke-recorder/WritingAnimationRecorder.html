@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stroke recorder — capture points for animation</title>
+    <style>
+      :root {
+        --bg: #1a1816;
+        --panel: #24211d;
+        --text: #e8e4dc;
+        --muted: #8a847a;
+        --accent: #c45a4e;
+        --line: #3d3834;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, Segoe UI, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 700;
+      }
+      p {
+        margin: 0;
+        max-width: 52ch;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.5;
+      }
+      code {
+        font-size: 0.82em;
+        color: #c9c4bc;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: center;
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 0.45rem 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--panel);
+        color: var(--text);
+        cursor: pointer;
+      }
+      button:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: #f0ebe3;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: #a84a42;
+        color: #fff;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .wrap {
+        position: relative;
+        border: 2px solid var(--line);
+        border-radius: 8px;
+        background: #faf8f4;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+        touch-action: none;
+        max-width: 100%;
+      }
+      canvas {
+        display: block;
+        vertical-align: top;
+        cursor: crosshair;
+        width: 100%;
+        height: auto;
+        max-width: 800px;
+      }
+      label {
+        font-size: 0.8rem;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      input[type='range'] {
+        width: 120px;
+      }
+      textarea {
+        width: min(100%, 720px);
+        height: 220px;
+        font-family: ui-monospace, monospace;
+        font-size: 0.72rem;
+        line-height: 1.4;
+        padding: 0.65rem;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #0f0e0c;
+        color: #c9c4bc;
+        resize: vertical;
+      }
+      .stats {
+        font-size: 0.78rem;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Stroke recorder</h1>
+    <p>
+      Draw with mouse or finger. Each drag is one <strong>stroke</strong>. Points are
+      <code>{ x, y, t }</code> in the same coordinate system as the exported
+      <code>width</code> / <code>height</code> (use that as an SVG
+      <code>viewBox</code> for identical layout). <code>t</code> is
+      <code>performance.now()</code> when the point was captured — use deltas for timing when you
+      replay.
+    </p>
+
+    <div class="row">
+      <label>
+        Line width
+        <input type="range" id="lineWidth" min="1" max="12" value="3" />
+        <span id="lineWidthVal">3</span>
+      </label>
+      <button type="button" id="undoStroke">Undo last stroke</button>
+      <button type="button" id="clear">Clear canvas + data</button>
+      <button type="button" id="copy" class="primary">Copy JSON</button>
+    </div>
+
+    <div class="wrap">
+      <canvas id="draw" aria-label="Drawing area"></canvas>
+    </div>
+
+    <div class="row">
+      <button type="button" id="playback">Playback</button>
+      <span class="stats" id="stats">0 strokes · 0 points</span>
+    </div>
+
+    <textarea id="output" readonly spellcheck="false" placeholder="Recorded strokes JSON…"></textarea>
+
+    <script>
+      ;(function () {
+        /** Logical size — exported JSON uses these; match SVG viewBox "0 0 W H" */
+        const LOGICAL_W = 800
+        const LOGICAL_H = 240
+
+        const canvas = document.getElementById('draw')
+        const ctx = canvas.getContext('2d')
+        const lineWidthEl = document.getElementById('lineWidth')
+        const lineWidthVal = document.getElementById('lineWidthVal')
+        const output = document.getElementById('output')
+        const stats = document.getElementById('stats')
+
+        /** @type {{ x: number, y: number, t: number }[][]} */
+        let strokes = []
+        /** @type {{ x: number, y: number, t: number }[] | null} */
+        let current = null
+        let drawing = false
+
+        function applyCanvasSize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2.5)
+          canvas.style.width = `${LOGICAL_W}px`
+          canvas.style.height = `${LOGICAL_H}px`
+          canvas.width = Math.round(LOGICAL_W * dpr)
+          canvas.height = Math.round(LOGICAL_H * dpr)
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+        }
+
+        function applyStrokeStyle() {
+          ctx.lineWidth = Number(lineWidthEl.value)
+          ctx.lineCap = 'round'
+          ctx.lineJoin = 'round'
+          ctx.strokeStyle = '#1c1916'
+        }
+
+        function canvasCoords(clientX, clientY) {
+          const rect = canvas.getBoundingClientRect()
+          return {
+            x: ((clientX - rect.left) / rect.width) * LOGICAL_W,
+            y: ((clientY - rect.top) / rect.height) * LOGICAL_H,
+          }
+        }
+
+        function redrawAll() {
+          ctx.save()
+          ctx.setTransform(1, 0, 0, 1, 0, 0)
+          ctx.fillStyle = '#faf8f4'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.restore()
+
+          applyStrokeStyle()
+          for (const stroke of strokes) {
+            if (stroke.length < 2) continue
+            ctx.beginPath()
+            ctx.moveTo(stroke[0].x, stroke[0].y)
+            for (let i = 1; i < stroke.length; i++) ctx.lineTo(stroke[i].x, stroke[i].y)
+            ctx.stroke()
+          }
+        }
+
+        function syncOutput() {
+          const payload = {
+            version: 1,
+            width: LOGICAL_W,
+            height: LOGICAL_H,
+            strokes,
+          }
+          output.value = JSON.stringify(payload, null, 2)
+          const pts = strokes.reduce((n, s) => n + s.length, 0)
+          stats.textContent = `${strokes.length} strokes · ${pts} points`
+        }
+
+        function onPointerDown(e) {
+          e.preventDefault()
+          canvas.setPointerCapture(e.pointerId)
+          const { x, y } = canvasCoords(e.clientX, e.clientY)
+          const t = performance.now()
+          drawing = true
+          current = [{ x, y, t }]
+          strokes.push(current)
+          applyStrokeStyle()
+          ctx.beginPath()
+          ctx.moveTo(x, y)
+          syncOutput()
+        }
+
+        function onPointerMove(e) {
+          if (!drawing || !current) return
+          e.preventDefault()
+          const { x, y } = canvasCoords(e.clientX, e.clientY)
+          const t = performance.now()
+          current.push({ x, y, t })
+          ctx.lineTo(x, y)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(x, y)
+          syncOutput()
+        }
+
+        function onPointerUp(e) {
+          if (!drawing) return
+          e.preventDefault()
+          try {
+            canvas.releasePointerCapture(e.pointerId)
+          } catch (_) {}
+          drawing = false
+          current = null
+          syncOutput()
+        }
+
+        lineWidthEl.addEventListener('input', () => {
+          lineWidthVal.textContent = lineWidthEl.value
+          redrawAll()
+          syncOutput()
+        })
+
+        document.getElementById('clear').addEventListener('click', () => {
+          strokes = []
+          current = null
+          drawing = false
+          applyCanvasSize()
+          redrawAll()
+          syncOutput()
+        })
+
+        document.getElementById('undoStroke').addEventListener('click', () => {
+          strokes.pop()
+          current = null
+          drawing = false
+          redrawAll()
+          syncOutput()
+        })
+
+        document.getElementById('copy').addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(output.value)
+            const b = document.getElementById('copy')
+            const prev = b.textContent
+            b.textContent = 'Copied!'
+            setTimeout(() => (b.textContent = prev), 1200)
+          } catch {
+            output.select()
+            document.execCommand('copy')
+          }
+        })
+
+        let playing = false
+        document.getElementById('playback').addEventListener('click', () => {
+          if (playing) return
+          const flat = strokes.flat()
+          if (flat.length === 0) return
+
+          playing = true
+          const btn = document.getElementById('playback')
+          btn.disabled = true
+
+          const tMin = Math.min(...flat.map((p) => p.t))
+          const tMax = Math.max(...flat.map((p) => p.t))
+          const replayDuration = Math.min(8000, Math.max(400, tMax - tMin + 80))
+          const wallStart = performance.now()
+
+          function drawUpTo(recordTime) {
+            ctx.save()
+            ctx.setTransform(1, 0, 0, 1, 0, 0)
+            ctx.fillStyle = '#faf8f4'
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
+            ctx.restore()
+            applyStrokeStyle()
+
+            for (const stroke of strokes) {
+              const pts = stroke.filter((p) => p.t <= recordTime)
+              if (pts.length < 2) continue
+              ctx.beginPath()
+              ctx.moveTo(pts[0].x, pts[0].y)
+              for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+              ctx.stroke()
+            }
+          }
+
+          function frame(now) {
+            const wallElapsed = now - wallStart
+            const u = Math.min(1, wallElapsed / replayDuration)
+            const recordTime = tMin + u * (tMax - tMin + 1)
+            drawUpTo(recordTime)
+            if (u < 1) {
+              requestAnimationFrame(frame)
+            } else {
+              redrawAll()
+              playing = false
+              btn.disabled = false
+            }
+          }
+          requestAnimationFrame(frame)
+        })
+
+        window.addEventListener('resize', () => {
+          applyCanvasSize()
+          redrawAll()
+        })
+
+        applyCanvasSize()
+        redrawAll()
+        syncOutput()
+
+        canvas.addEventListener('pointerdown', onPointerDown)
+        canvas.addEventListener('pointermove', onPointerMove)
+        canvas.addEventListener('pointerup', onPointerUp)
+        canvas.addEventListener('pointercancel', onPointerUp)
+      })()
+    </script>
+  </body>
+</html>
