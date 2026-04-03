@@ -10,6 +10,8 @@ export default function HeroParallax({ backgroundSrc, bandSrc, bandAlt = 'Chains
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     if (mq.matches) return
+    /* Avoid setState on every scroll tick on narrow viewports — main cause of mobile jank */
+    if (window.matchMedia('(max-width: 768px)').matches) return
 
     let raf = 0
     const onScroll = () => {

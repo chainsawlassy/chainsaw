@@ -9,10 +9,17 @@ export function parallaxSpeedForIndex(i) {
   return speeds[i % speeds.length]
 }
 
+function shouldSkipParallax() {
+  if (typeof window === 'undefined') return true
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true
+  /* Parallax updates dozens of nodes per scroll — too heavy for most phones */
+  if (window.matchMedia('(max-width: 768px)').matches) return true
+  return false
+}
+
 export function useParallaxDecos() {
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    if (mq.matches) return
+    if (shouldSkipParallax()) return
 
     let ticking = false
 

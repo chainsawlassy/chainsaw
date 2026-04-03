@@ -80,3 +80,14 @@
   margin-top:.75rem;
   margin-bottom:0;
 }
+@media (max-width:768px){
+  .tape-bar{
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+    background:#0e0c0af2;
+  }
+  .zine-body__deco,.paste-strip__deco,.ransom-block__deco,.reach-zine__deco,.zine-foot__deco{
+    animation:none!important;
+    opacity:.12;
+  }
+}
