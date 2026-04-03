@@ -28,9 +28,9 @@ import { useParallaxDecos, parallaxSpeedForIndex } from './useParallaxDecos.js'
 
 const tapeNav = [
   { href: '#bio', label: 'Bio' },
-  { href: '#spite', label: 'SPITE' },
+  { href: '#spite', label: 'LISTEN' },
   { href: '#dates', label: 'Dates' },
-  { href: '#reach', label: 'Reach' },
+  { href: '#reach', label: 'Booking' },
 ]
 
 const streamArtist = {
@@ -308,30 +308,6 @@ export default function App() {
                   </li>
                 ))}
               </ul>
-              <div
-                className="paste-strip__dates-booking"
-                style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                }}
-              >
-                <p
-                  className="paste-strip__dates-note type-note mono"
-                  style={{
-                    margin: '1rem 0 0',
-                    minWidth: 0,
-                    maxWidth: 'min(100%, 42rem)',
-                    width: '100%',
-                    textAlign: 'center',
-                    opacity: 0.72,
-                    color: 'var(--strip-text)',
-                  }}
-                >
-                  {siteContent.dates.bookingNote}
-                </p>
-              </div>
             </div>
           </section>
 

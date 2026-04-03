@@ -20,7 +20,6 @@ export const siteContent = {
   },
   dates: {
     heading: 'Dates',
-    bookingNote: 'Booking → see Reach.',
     shows: [
       {
         id: 'show-2026-04-10-white-water',
@@ -33,9 +32,9 @@ export const siteContent = {
     ],
   },
   reach: {
-    heading: 'Reach',
-    emailLabel: 'hello@example.com',
-    emailHref: 'mailto:hello@example.com',
+    heading: 'Booking',
+    emailLabel: 'chainsawlassy@gmail.com',
+    emailHref: 'mailto:chainsawlassy@gmail.com',
   },
   footer: {
     copyrightName: 'Chainsaw Lassy',
