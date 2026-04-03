@@ -114,4 +114,16 @@
     animation:none!important;
     opacity:.12;
   }
+  /*
+    Rotating drop-shadows extend the filtered paint bounds each frame; mobile browsers
+    often flash horizontal/vertical scrollbars as overflow is recalculated. Static text is enough here.
+  */
+  .hero-stack__title .paste-hero__w1,
+  .hero-stack__title .paste-hero__w2{
+    animation:none;
+  }
+}
+.zine{
+  min-height:100vh;
+  min-height:100dvh;
 }

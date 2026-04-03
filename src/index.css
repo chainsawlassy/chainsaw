@@ -7,6 +7,8 @@
 /* Smooth scroll fights touch momentum on phones — keep native scrolling on small screens */
 html {
   scroll-behavior: auto;
+  /* Animated filters / decos can paint past the layout box — avoid phantom horizontal scrollbars */
+  overflow-x: clip;
 }
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
   html {
@@ -16,7 +18,9 @@ html {
 
 body {
   margin: 0;
+  overflow-x: clip;
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: Syne, system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.55;
@@ -27,6 +31,7 @@ body {
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 img {
