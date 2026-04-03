@@ -23,6 +23,7 @@ import backtoschoolStrokes from '@assets/backtoschool.json'
 import HeroParallax from './HeroParallax.jsx'
 import PolaroidStrokePlayback from './PolaroidStrokePlayback.jsx'
 import HeroSocialIcons, { ReachSocialIcons } from './HeroSocialIcons.jsx'
+import { useEffect, useState } from 'react'
 import { siteContent } from './siteContent.js'
 import { useParallaxDecos, parallaxSpeedForIndex } from './useParallaxDecos.js'
 
@@ -86,6 +87,36 @@ const footerDeco = [
 
 export default function App() {
   useParallaxDecos()
+  const [polaroidPeek, setPolaroidPeek] = useState(null)
+  const [touchPolaroidUi, setTouchPolaroidUi] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(hover: none)')
+    const sync = () => {
+      setTouchPolaroidUi(mq.matches)
+      if (!mq.matches) setPolaroidPeek(null)
+    }
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
+  const polaroidTouchHandlers = (id) =>
+    touchPolaroidUi
+      ? {
+          role: 'button',
+          tabIndex: 0,
+          'aria-pressed': polaroidPeek === id,
+          'aria-label': 'Toggle enlarged band photo',
+          onClick: () => setPolaroidPeek((p) => (p === id ? null : id)),
+          onKeyDown: (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setPolaroidPeek((p) => (p === id ? null : id))
+            }
+          },
+        }
+      : {}
 
   return (
     <div className="zine">
@@ -154,7 +185,10 @@ export default function App() {
                   role="group"
                   aria-label="Chainsaw Lassy band photos"
                 >
-                  <div className="bio-section__polaroid bio-section__polaroid--stack bio-section__polaroid--s1">
+                  <div
+                    className={`bio-section__polaroid bio-section__polaroid--stack bio-section__polaroid--s1${polaroidPeek === 's1' ? ' bio-section__polaroid--peek' : ''}`}
+                    {...polaroidTouchHandlers('s1')}
+                  >
                     <img
                       className="bio-section__img"
                       src={bandPhoto1}
@@ -175,7 +209,10 @@ export default function App() {
                     />
                     <PolaroidStrokePlayback data={backtoschoolStrokes} />
                   </div>
-                  <div className="bio-section__polaroid bio-section__polaroid--stack bio-section__polaroid--s2">
+                  <div
+                    className={`bio-section__polaroid bio-section__polaroid--stack bio-section__polaroid--s2${polaroidPeek === 's2' ? ' bio-section__polaroid--peek' : ''}`}
+                    {...polaroidTouchHandlers('s2')}
+                  >
                     <img
                       className="bio-section__img"
                       src={bandPhoto2}
@@ -196,7 +233,10 @@ export default function App() {
                     />
                     <PolaroidStrokePlayback data={backtoschoolStrokes} />
                   </div>
-                  <div className="bio-section__polaroid bio-section__polaroid--stack bio-section__polaroid--s3">
+                  <div
+                    className={`bio-section__polaroid bio-section__polaroid--stack bio-section__polaroid--s3${polaroidPeek === 's3' ? ' bio-section__polaroid--peek' : ''}`}
+                    {...polaroidTouchHandlers('s3')}
+                  >
                     <img
                       className="bio-section__img"
                       src={bandPhoto3}
